@@ -584,6 +584,60 @@ def interpolate_2d(
     return values
 
 
+def _interpolate_with_fill_using_interpolate_2d(
+        values, method, axis, limit, limit_area, fill_value, dtype
+):
+
+    if limit_area is None:
+        values = interpolate_2d(
+            values=values,
+            axis=axis,
+            method=method,
+            limit=limit,
+            fill_value=fill_value,
+            dtype=dtype,
+        )
+    else:
+
+        def func(values):
+            invalid = isna(values)
+
+            if not invalid.any():
+                return values
+
+            if not invalid.all():
+                first = find_valid_index(values, "first")
+                last = find_valid_index(values, "last")
+
+                values = interpolate_2d(
+                    values=values,
+                    method=method,
+                    limit=limit,
+                    fill_value=fill_value,
+                    dtype=dtype,
+                )
+
+                if limit_area == "inside":
+                    invalid[first: last + 1] = False
+                elif limit_area == "outside":
+                    invalid[:first] = False
+                    invalid[last + 1:] = False
+
+                values[invalid] = np.nan
+            else:
+                values = interpolate_2d(
+                    values=values,
+                    method=method,
+                    limit=limit,
+                    fill_value=fill_value,
+                    dtype=dtype,
+                )
+            return values
+
+        values = np.apply_along_axis(func, axis, values)
+    return values
+
+
 def _cast_values_for_fillna(values, dtype):
     """
     Cast values to a dtype that algos.pad and algos.backfill can handle.
